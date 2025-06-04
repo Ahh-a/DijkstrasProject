@@ -25,6 +25,9 @@ deps =[    dependency('gtkmm-4.0'),
 
 c_sources = [
   'src/main.c',
+  'src/main.h',
+  'src/osm_reader.c',
+  'src/osm_reader.h',
   'src/dijkstra.c',
   'src/graph.c',
   'src/graph.h',
