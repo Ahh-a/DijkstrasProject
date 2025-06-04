@@ -1,0 +1,11 @@
+.vscode/
+*.temp
+*.log
+*.bak
+*.swp
+*.tmp
+*.DS_Store
+*.idea/
+*.iml
+*.gitkeep
+AED2_2025_*
