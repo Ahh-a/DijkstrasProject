@@ -3,9 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <locale.h>
-
-#define _GNU_SOURCE
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -47,13 +44,8 @@ typedef struct {
 } EdgeTemp;
 
 Grafo* ler_osm(const char* caminho_arquivo_osm) {
-    // Set C locale to ensure decimal point parsing
-    setlocale(LC_NUMERIC, "C");
-    
     FILE* f = fopen(caminho_arquivo_osm, "r");
-    if (!f) {
-        return NULL;
-    }
+    if (!f) return NULL;
 
     NodeTemp* nodes = NULL;
     size_t nodes_cap = 0, nodes_count = 0;
@@ -187,6 +179,5 @@ Grafo* ler_osm(const char* caminho_arquivo_osm) {
     
     free(nodes);
     free(edges);
-    
     return grafo;
 }

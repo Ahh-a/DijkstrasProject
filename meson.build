@@ -1,4 +1,4 @@
-project('DijikstrasPorject', 'c',
+project('DijikstrasProject', 'c',
   version: '0.1.0',
   meson_version: '>= 0.50.0',
   default_options: [
@@ -15,29 +15,26 @@ gnome = import('gnome')
 resources = gnome.compile_resources('resoures', 'dijkstrasProject.gresource.xml',
   source_dir: 'data')
 
-deps =[    dependency('gtkmm-4.0'),
+deps = [
+  dependency('gtk+-3.0'),
   dependency('glib-2.0'),
   dependency('gio-2.0'),
-  dependency('gdkmm-4.0'),
   dependency('cairo'),
-  dependency('cairo-gobject')
+  dependency('cairo-gobject'),
+  dependency('libxml-2.0'),
+  meson.get_compiler('c').find_library('m', required: true)
 ]
 
 c_sources = [
   'src/main.c',
-  'src/main.h',
   'src/osm_reader.c',
-  'src/osm_reader.h',
   'src/dijkstra.c',
-  'src/graph.c',
-  'src/graph.h',
-  'src/dijkstra.h'
+  'src/graph.c'
 ]
 executable(
     meson.project_name(),
     c_sources,
     resources,
     include_directories: includes,
-    dependencies: deps,
-    win_subsystem: 'windows'
+    dependencies: deps
 )

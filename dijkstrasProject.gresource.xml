@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<gresources>
+  <gresource prefix='/io/github/ahh-a/DijkstrasProject'>
+    <file preprocess='xml-stripblanks'>data/my_window.ui</file>
+    <file preprocess='xml-stripblanks'>data/menu.ui</file>
+  </gresource>
+</gresources>
