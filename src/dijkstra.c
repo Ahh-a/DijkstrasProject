@@ -265,13 +265,45 @@ ResultadoDijkstra* dijkstra(Grafo *grafo, long origem_id, long destino_id) {
         resultado->distancia_total = -1.0;
         resultado->sucesso = 0;
     } else {
-        // Reconstruir caminho
-        // Implementação simplificada - apenas retorna origem e destino
-        resultado->caminho = malloc(sizeof(long) * 2);
+        // Reconstruir caminho completo usando predecessores
+        // Primeiro, contar o tamanho do caminho
+        int contador = 0;
+        long atual_id = destino_id;
+        int indice_atual = indice_destino;
+        
+        while (indice_atual != -1) {
+            contador++;
+            if (atual_id == origem_id) break;
+            
+            // Encontrar o predecessor
+            long predecessor_id = predecessores[indice_atual];
+            if (predecessor_id == -1) break;
+            
+            // Encontrar índice do predecessor
+            indice_atual = encontrar_indice_ponto(grafo, predecessor_id);
+            atual_id = predecessor_id;
+        }
+        
+        // Alocar array para o caminho
+        resultado->caminho = malloc(sizeof(long) * contador);
         if (resultado->caminho) {
-            resultado->caminho[0] = origem_id;
-            resultado->caminho[1] = destino_id;
-            resultado->tamanho_caminho = 2;
+            // Preencher caminho de trás para frente
+            atual_id = destino_id;
+            indice_atual = indice_destino;
+            
+            for (int i = contador - 1; i >= 0; i--) {
+                resultado->caminho[i] = atual_id;
+                if (atual_id == origem_id) break;
+                
+                // Próximo predecessor
+                long predecessor_id = predecessores[indice_atual];
+                if (predecessor_id == -1) break;
+                
+                indice_atual = encontrar_indice_ponto(grafo, predecessor_id);
+                atual_id = predecessor_id;
+            }
+            
+            resultado->tamanho_caminho = contador;
         } else {
             resultado->tamanho_caminho = 0;
         }

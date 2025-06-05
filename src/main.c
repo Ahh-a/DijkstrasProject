@@ -40,12 +40,38 @@ typedef struct {
     long long selected_end_id;
     gboolean has_start_point;
     gboolean has_end_point;
+    
+    // Variáveis para exibição do caminho mais curto
+    long *shortest_path;
+    int shortest_path_length;
+    gboolean has_shortest_path;
 } AppData;
 
 // Função para atualizar o status bar
 void update_status(AppData *app, const char *message) {
     gtk_statusbar_pop(GTK_STATUSBAR(app->statusbar), app->status_context_id);
     gtk_statusbar_push(GTK_STATUSBAR(app->statusbar), app->status_context_id, message);
+}
+
+// Função para verificar se uma aresta faz parte do caminho mais curto
+gboolean is_edge_in_shortest_path(AppData *app, long node1_id, long node2_id) {
+    if (!app->has_shortest_path || !app->shortest_path || app->shortest_path_length < 2) {
+        return FALSE;
+    }
+    
+    // Verificar se os nós são consecutivos no caminho
+    for (int i = 0; i < app->shortest_path_length - 1; i++) {
+        long current_node = app->shortest_path[i];
+        long next_node = app->shortest_path[i + 1];
+        
+        // Verificar em ambas as direções (grafo não direcionado)
+        if ((current_node == node1_id && next_node == node2_id) ||
+            (current_node == node2_id && next_node == node1_id)) {
+            return TRUE;
+        }
+    }
+    
+    return FALSE;
 }
 
 // Função para atualizar as informações do arquivo
@@ -122,7 +148,6 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
         double map_center_y = (min_lat + max_lat) / 2.0;
         
         // Draw edges first (behind points)
-        cairo_set_source_rgba(cr, 0.4, 0.4, 0.4, 0.6);
         cairo_set_line_width(cr, 0.8 / app->zoom_factor); // Thinner lines when zoomed in
         
         for (size_t i = 0; i < app->grafo->num_arestas; i++) {
@@ -150,6 +175,20 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
                 // Only draw if at least part of the line is visible
                 if ((x1 >= -10 || x2 >= -10) && (x1 <= allocation.width + 10 || x2 <= allocation.width + 10) &&
                     (y1 >= -10 || y2 >= -10) && (y1 <= allocation.height + 10 || y2 <= allocation.height + 10)) {
+                    
+                    // Check if this edge is part of the shortest path
+                    gboolean is_shortest_path_edge = is_edge_in_shortest_path(app, a->origem, a->destino);
+                    
+                    if (is_shortest_path_edge) {
+                        // Draw shortest path edges in red with thicker line
+                        cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.9); // Red
+                        cairo_set_line_width(cr, 2.0 / app->zoom_factor);
+                    } else {
+                        // Draw normal edges in gray
+                        cairo_set_source_rgba(cr, 0.4, 0.4, 0.4, 0.6); // Gray
+                        cairo_set_line_width(cr, 0.8 / app->zoom_factor);
+                    }
+                    
                     cairo_move_to(cr, x1, y1);
                     cairo_line_to(cr, x2, y2);
                     cairo_stroke(cr);
@@ -203,6 +242,7 @@ gboolean on_graph_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user
     if (!app->grafo) return FALSE;
     
     double zoom_factor = 1.1;
+    double old_zoom = app->zoom_factor;
     
     if (event->direction == GDK_SCROLL_UP) {
         app->zoom_factor *= zoom_factor;
@@ -213,6 +253,25 @@ gboolean on_graph_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user
     // Limitar o zoom
     if (app->zoom_factor < 0.1) app->zoom_factor = 0.1;
     if (app->zoom_factor > 50.0) app->zoom_factor = 50.0;
+    
+    // Ajustar pan para manter o mouse no centro do zoom
+    double zoom_ratio = app->zoom_factor / old_zoom;
+    if (zoom_ratio != 1.0) {
+        GtkAllocation allocation;
+        gtk_widget_get_allocation(widget, &allocation);
+        
+        // Posição do mouse em coordenadas da tela
+        double mouse_x = event->x;
+        double mouse_y = event->y;
+        
+        // Posição do mouse em coordenadas do mundo (antes do zoom)
+        double world_x = (mouse_x - allocation.width/2 - app->pan_x) / old_zoom;
+        double world_y = (mouse_y - allocation.height/2 - app->pan_y) / old_zoom;
+        
+        // Ajustar pan para manter o ponto do mundo sob o mouse
+        app->pan_x = mouse_x - allocation.width/2 - world_x * app->zoom_factor;
+        app->pan_y = mouse_y - allocation.height/2 - world_y * app->zoom_factor;
+    }
     
     gtk_widget_queue_draw(widget);
     return TRUE;
@@ -420,6 +479,14 @@ void on_open_osm_clicked(GtkMenuItem *menuitem, gpointer user_data) {
             app->selected_start_id = 0;
             app->selected_end_id = 0;
             
+            // Clear shortest path when loading new file
+            if (app->shortest_path) {
+                free(app->shortest_path);
+                app->shortest_path = NULL;
+            }
+            app->has_shortest_path = FALSE;
+            app->shortest_path_length = 0;
+            
             // Reset zoom and pan
             app->zoom_factor = 1.0;
             app->pan_x = 0.0;
@@ -497,6 +564,25 @@ void on_find_path_clicked(GtkButton *button, gpointer user_data) {
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->results_text));
     
     if (resultado && resultado->sucesso) {
+        // Limpar caminho anterior se existir
+        if (app->shortest_path) {
+            free(app->shortest_path);
+            app->shortest_path = NULL;
+        }
+        
+        // Armazenar o novo caminho mais curto
+        app->shortest_path_length = resultado->tamanho_caminho;
+        app->shortest_path = malloc(app->shortest_path_length * sizeof(long));
+        if (app->shortest_path) {
+            for (int i = 0; i < resultado->tamanho_caminho; i++) {
+                app->shortest_path[i] = resultado->caminho[i];
+            }
+            app->has_shortest_path = TRUE;
+        } else {
+            app->has_shortest_path = FALSE;
+            app->shortest_path_length = 0;
+        }
+        
         gchar *result_text = g_strdup_printf("Shortest Path Found!\n\nStart Point:\n  ID: %lld\n  Lat: %.6f\n  Lon: %.6f\n\nEnd Point:\n  ID: %lld\n  Lat: %.6f\n  Lon: %.6f\n\nPath Details:\n  Distance: %.2f km\n  Points in path: %d\n\nPath: ",
                                             start_point->id, start_point->lat, start_point->lon,
                                             end_point->id, end_point->lat, end_point->lon,
@@ -516,14 +602,28 @@ void on_find_path_clicked(GtkButton *button, gpointer user_data) {
         g_string_free(path_str, TRUE);
         update_status(app, "Shortest path calculated successfully");
         
+        // Redesenhar o grafo para mostrar o caminho em vermelho
+        gtk_widget_queue_draw(app->graph_area);
+        
         liberar_resultado_dijkstra(resultado);
     } else {
+        // Limpar caminho anterior se não há caminho válido
+        if (app->shortest_path) {
+            free(app->shortest_path);
+            app->shortest_path = NULL;
+        }
+        app->has_shortest_path = FALSE;
+        app->shortest_path_length = 0;
+        
         gchar *error_msg = g_strdup_printf("No path found between points!\n\nStart Point:\n  ID: %lld\n  Lat: %.6f\n  Lon: %.6f\n\nEnd Point:\n  ID: %lld\n  Lat: %.6f\n  Lon: %.6f\n\nThe points may be in disconnected components of the graph.\n",
                                           start_point->id, start_point->lat, start_point->lon,
                                           end_point->id, end_point->lat, end_point->lon);
         gtk_text_buffer_set_text(buffer, error_msg, -1);
         g_free(error_msg);
         update_status(app, "No path found");
+        
+        // Redesenhar o grafo
+        gtk_widget_queue_draw(app->graph_area);
         
         if (resultado) {
             liberar_resultado_dijkstra(resultado);
@@ -543,6 +643,14 @@ void on_clear_clicked(GtkToolButton *toolbutton, gpointer user_data) {
     app->has_end_point = FALSE;
     app->selected_start_id = 0;
     app->selected_end_id = 0;
+    
+    // Clear shortest path
+    if (app->shortest_path) {
+        free(app->shortest_path);
+        app->shortest_path = NULL;
+    }
+    app->has_shortest_path = FALSE;
+    app->shortest_path_length = 0;
     
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->results_text));
     gtk_text_buffer_set_text(buffer, "", -1);
@@ -613,6 +721,11 @@ int main(int argc, char *argv[]) {
     app->selected_start_id = 0;
     app->selected_end_id = 0;
     
+    // Inicializar variáveis do caminho mais curto
+    app->shortest_path = NULL;
+    app->shortest_path_length = 0;
+    app->has_shortest_path = FALSE;
+    
     // Obter widgets
     app->window = GTK_WIDGET(gtk_builder_get_object(builder, "main_window"));
     app->file_label = GTK_WIDGET(gtk_builder_get_object(builder, "file_label"));
@@ -656,7 +769,14 @@ int main(int argc, char *argv[]) {
     // Executar loop principal
     gtk_main();
     
-    // Limpar
+    // Limpar memória
+    if (app->shortest_path) {
+        free(app->shortest_path);
+    }
+    if (app->grafo) {
+        liberar_grafo(app->grafo);
+    }
+    g_free(app->current_file);
     g_free(app);
     g_object_unref(builder);
     
