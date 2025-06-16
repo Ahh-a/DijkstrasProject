@@ -13,6 +13,66 @@ Uma implementação completa do algoritmo de caminho mais curto de Dijkstra com 
 - **Controles do Mouse**: Zoom com roda do mouse, arrastar para navegar, navegação intuitiva
 - **Busca de Caminhos**: Cálculo interativo de caminhos entre pontos selecionados com feedback visual
 - **Diferenciação Visual**: Pontos selecionados são destacados com cores diferentes (verde=início, vermelho=fim)
+- **🛣️ Grafos Direcionados**: Suporte completo a vias de mão única e mão dupla com parsing de tags OSM
+- **Visualização de Direção**: Arestas direcionais mostradas em azul com setas, bidirecionais em cinza
+
+## 🛣️ **Suporte a Grafos Direcionados**
+
+O projeto agora suporta diferentes tipos de vias para representar o trânsito real:
+
+### Tipos de Via Suportados:
+- **🔄 Vias Bidirecionais**: Ruas normais de mão dupla (padrão)
+- **➡️ Vias de Mão Única**: Ruas com direção única obrigatória  
+- **⬅️ Vias Reversas**: Vias de mão única na direção oposta
+
+### Tags OSM Reconhecidas:
+```xml
+<!-- Via bidirecional (padrão) -->
+<way id="123">
+  <tag k="highway" v="residential"/>
+</way>
+
+<!-- Via de mão única -->
+<way id="124">
+  <tag k="highway" v="residential"/>
+  <tag k="oneway" v="yes"/>
+</way>
+
+<!-- Via de mão única reversa -->
+<way id="125">
+  <tag k="highway" v="residential"/>
+  <tag k="oneway" v="-1"/>
+</way>
+```
+
+### Visualização:
+- **Arestas Bidirecionais**: Linhas cinzas sem setas
+- **Arestas Direcionais**: Linhas azuis com setas indicando direção
+- **Caminhos Dijkstra**: Sempre em vermelho, independente do tipo
+
+### Algoritmo:
+- **Dijkstra Consciente de Direção**: O algoritmo respeita automaticamente as restrições de direção
+- **Busca Otimizada**: Só explora arestas na direção permitida
+- **Caminhos Válidos**: Garante que todos os caminhos encontrados respeitam o trânsito
+
+### Detecção Automática OSM:
+O parser OSM detecta automaticamente tags de via única:
+- `<tag k="oneway" v="yes"/>` ou `v="true"` ou `v="1"` → Via de mão única normal
+- `<tag k="oneway" v="-1"/>` ou `v="reverse"/>` → Via de mão única reversa
+- Ausência da tag oneway → Via bidirecional (padrão)
+
+### Algoritmo de Dijkstra Atualizado:
+- Respeita as direções das vias durante o cálculo de caminhos
+- Vias de mão única só podem ser percorridas na direção correta
+- Vias bidirecionais podem ser percorridas em ambas as direções
+
+### Visualização Diferenciada:
+- **Cores**: Cinza para bidirecionais, azul para mão única
+- **Setas**: Setas azuis indicam a direção permitida em vias de mão única
+- **Estatísticas**: Interface mostra contagem de vias de cada tipo
+
+### Exemplo de Teste:
+Use o arquivo `test_oneway.osm` incluído para testar a funcionalidade com diferentes tipos de via.
 
 ## Dependências
 

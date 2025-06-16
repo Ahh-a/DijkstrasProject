@@ -36,6 +36,7 @@ int adicionar_aresta(Grafo* grafo, long long origem, long long destino, double p
     grafo->arestas[grafo->num_arestas].origem = origem;
     grafo->arestas[grafo->num_arestas].destino = destino;
     grafo->arestas[grafo->num_arestas].peso = peso;
+    grafo->arestas[grafo->num_arestas].is_bidirectional = 1; // Por padrão, bidirectional
     grafo->num_arestas++;
     return 0;
 }
@@ -59,6 +60,9 @@ void imprimir_grafo(const Grafo* grafo) {
     }
     printf("Arestas (%zu):\n", grafo->num_arestas);
     for (size_t i = 0; i < grafo->num_arestas; ++i) {
-        printf("  [%zu] origem=%lld destino=%lld peso=%.2lf\n", i, grafo->arestas[i].origem, grafo->arestas[i].destino, grafo->arestas[i].peso);
+        printf("  [%zu] origem=%lld destino=%lld peso=%.2lf %s\n", 
+               i, grafo->arestas[i].origem, grafo->arestas[i].destino, 
+               grafo->arestas[i].peso,
+               grafo->arestas[i].is_bidirectional ? "(bidirectional)" : "(oneway)");
     }
 }

@@ -44,6 +44,7 @@ typedef struct {
 typedef struct {
     long long origem;
     long long destino;
+    int is_bidirectional;  // 1 para bidirectional, 0 para direcional
 } EdgeTemp;
 
 Grafo* ler_osm(const char* caminho_arquivo_osm) {
@@ -64,6 +65,7 @@ Grafo* ler_osm(const char* caminho_arquivo_osm) {
     int in_way = 0;
     long long way_nodes[128];
     int way_nodes_count = 0;
+    int is_oneway = 0;  // Flag para detectar vias de mão única
 
     while (fgets(linha, LINHA_MAX, f)) {
         // Parse node - improved parsing for complex OSM format
@@ -118,7 +120,14 @@ Grafo* ler_osm(const char* caminho_arquivo_osm) {
             if (parsed) {
                 if (nodes_count == nodes_cap) {
                     nodes_cap = nodes_cap ? nodes_cap*2 : 1024;
-                    nodes = realloc(nodes, nodes_cap * sizeof(NodeTemp));
+                    NodeTemp* new_nodes = realloc(nodes, nodes_cap * sizeof(NodeTemp));
+                    if (!new_nodes) {
+                        free(nodes);
+                        free(edges);
+                        fclose(f);
+                        return NULL;
+                    }
+                    nodes = new_nodes;
                 }
                 nodes[nodes_count++] = (NodeTemp){id, lat, lon};
             }
@@ -129,6 +138,7 @@ Grafo* ler_osm(const char* caminho_arquivo_osm) {
         if (strstr(linha, "<way ")) {
             in_way = 1;
             way_nodes_count = 0;
+            is_oneway = 0;  // Reset flag para cada way
             continue;
         }
         if (in_way && strstr(linha, "<nd ref=")) {
@@ -139,15 +149,55 @@ Grafo* ler_osm(const char* caminho_arquivo_osm) {
             }
             continue;
         }
+        // Detectar tags de via única
+        if (in_way && strstr(linha, "<tag")) {
+            if (strstr(linha, "k=\"oneway\"")) {
+                if (strstr(linha, "v=\"yes\"") || strstr(linha, "v=\"true\"") || strstr(linha, "v=\"1\"")) {
+                    is_oneway = 1;
+                } else if (strstr(linha, "v=\"-1\"") || strstr(linha, "v=\"reverse\"")) {
+                    is_oneway = -1;  // Via única na direção reversa
+                }
+            }
+            continue;
+        }
         if (in_way && strstr(linha, "</way>")) {
             // Adiciona arestas entre os nós do caminho
             for (int i = 1; i < way_nodes_count; ++i) {
-                if (edges_count == edges_cap) {
+                // Check if we need more space (considering we might add 2 edges)
+                if (edges_count + 1 >= edges_cap) {
                     edges_cap = edges_cap ? edges_cap*2 : 1024;
-                    edges = realloc(edges, edges_cap * sizeof(EdgeTemp));
+                    EdgeTemp* new_edges = realloc(edges, edges_cap * sizeof(EdgeTemp));
+                    if (!new_edges) {
+                        free(nodes);
+                        free(edges);
+                        fclose(f);
+                        return NULL;
+                    }
+                    edges = new_edges;
                 }
-                edges[edges_count++] = (EdgeTemp){way_nodes[i-1], way_nodes[i]};
-                edges[edges_count++] = (EdgeTemp){way_nodes[i], way_nodes[i-1]}; // bidirecional
+                
+                if (is_oneway == 0) {
+                    // Via bidirecional - adicionar ambas as direções
+                    if (edges_count + 1 >= edges_cap) {
+                        edges_cap = edges_cap*2;
+                        EdgeTemp* new_edges = realloc(edges, edges_cap * sizeof(EdgeTemp));
+                        if (!new_edges) {
+                            free(nodes);
+                            free(edges);
+                            fclose(f);
+                            return NULL;
+                        }
+                        edges = new_edges;
+                    }
+                    edges[edges_count++] = (EdgeTemp){way_nodes[i-1], way_nodes[i], 1};
+                    edges[edges_count++] = (EdgeTemp){way_nodes[i], way_nodes[i-1], 1};
+                } else if (is_oneway == 1) {
+                    // Via de mão única normal
+                    edges[edges_count++] = (EdgeTemp){way_nodes[i-1], way_nodes[i], 0};
+                } else if (is_oneway == -1) {
+                    // Via de mão única reversa
+                    edges[edges_count++] = (EdgeTemp){way_nodes[i], way_nodes[i-1], 0};
+                }
             }
             in_way = 0;
             continue;
@@ -157,8 +207,21 @@ Grafo* ler_osm(const char* caminho_arquivo_osm) {
 
     // Monta o grafo final
     Grafo* grafo = malloc(sizeof(Grafo));
+    if (!grafo) {
+        free(nodes);
+        free(edges);
+        return NULL;
+    }
+    
     grafo->num_pontos = nodes_count;
     grafo->pontos = malloc(nodes_count * sizeof(Ponto));
+    if (!grafo->pontos) {
+        free(grafo);
+        free(nodes);
+        free(edges);
+        return NULL;
+    }
+    
     for (size_t i = 0; i < nodes_count; ++i) {
         grafo->pontos[i].id = nodes[i].id;
         grafo->pontos[i].lat = nodes[i].lat;
@@ -167,6 +230,13 @@ Grafo* ler_osm(const char* caminho_arquivo_osm) {
     
     grafo->num_arestas = edges_count;
     grafo->arestas = malloc(edges_count * sizeof(Aresta));
+    if (!grafo->arestas) {
+        free(grafo->pontos);
+        free(grafo);
+        free(nodes);
+        free(edges);
+        return NULL;
+    }
     for (size_t i = 0; i < edges_count; ++i) {
         // Busca os pontos de origem e destino
         double lat1 = 0, lon1 = 0, lat2 = 0, lon2 = 0;
@@ -183,6 +253,7 @@ Grafo* ler_osm(const char* caminho_arquivo_osm) {
         grafo->arestas[i].origem = edges[i].origem;
         grafo->arestas[i].destino = edges[i].destino;
         grafo->arestas[i].peso = haversine(lat1, lon1, lat2, lon2) / 1000.0; // Convert to km
+        grafo->arestas[i].is_bidirectional = edges[i].is_bidirectional;
     }
     
     free(nodes);

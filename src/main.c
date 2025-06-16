@@ -53,6 +53,8 @@ typedef struct {
 
 // Função para atualizar o status bar
 void update_status(AppData *app, const char *message) {
+    if (!app || !app->statusbar || !message) return;
+    
     gtk_statusbar_pop(GTK_STATUSBAR(app->statusbar), app->status_context_id);
     gtk_statusbar_push(GTK_STATUSBAR(app->statusbar), app->status_context_id, message);
 }
@@ -80,22 +82,32 @@ gboolean is_edge_in_shortest_path(AppData *app, long node1_id, long node2_id) {
 
 // Função para atualizar as informações do arquivo
 void update_file_info(AppData *app) {
-    if (app->current_file) {
-        gchar *basename = g_path_get_basename(app->current_file);
-        gtk_label_set_text(GTK_LABEL(app->file_label), basename);
-        g_free(basename);
-    } else {
-        gtk_label_set_text(GTK_LABEL(app->file_label), "No file loaded");
+    if (!app) return;
+    
+    if (app->file_label) {
+        if (app->current_file) {
+            gchar *basename = g_path_get_basename(app->current_file);
+            gtk_label_set_text(GTK_LABEL(app->file_label), basename);
+            g_free(basename);
+        } else {
+            gtk_label_set_text(GTK_LABEL(app->file_label), "No file loaded");
+        }
     }
     
-    if (app->grafo) {
-        gchar *stats = g_strdup_printf("Points: %zu, Edges: %zu", 
-                                      app->grafo->num_pontos, 
-                                      app->grafo->num_arestas);
-        gtk_label_set_text(GTK_LABEL(app->stats_label), stats);
-        g_free(stats);
-    } else {
-        gtk_label_set_text(GTK_LABEL(app->stats_label), "Points: 0, Edges: 0");
+    if (app->stats_label) {
+        if (app->grafo) {
+            int oneway_count = count_oneway_edges(app->grafo);
+            int bidirectional_count = count_bidirectional_edges(app->grafo);
+            gchar *stats = g_strdup_printf("Points: %zu, Edges: %zu (Oneway: %d, Bidirectional: %d)", 
+                                          app->grafo->num_pontos, 
+                                          app->grafo->num_arestas,
+                                          oneway_count,
+                                          bidirectional_count);
+            gtk_label_set_text(GTK_LABEL(app->stats_label), stats);
+            g_free(stats);
+        } else {
+            gtk_label_set_text(GTK_LABEL(app->stats_label), "Points: 0, Edges: 0");
+        }
     }
 }
 
@@ -188,14 +200,60 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
                         cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.9); // Red
                         cairo_set_line_width(cr, 2.0 / app->zoom_factor);
                     } else {
-                        // Draw normal edges in gray
-                        cairo_set_source_rgba(cr, 0.4, 0.4, 0.4, 0.6); // Gray
-                        cairo_set_line_width(cr, 0.8 / app->zoom_factor);
+                        // Different colors for directional vs bidirectional edges
+                        if (a->is_bidirectional) {
+                            // Bidirectional edges in gray
+                            cairo_set_source_rgba(cr, 0.4, 0.4, 0.4, 0.6); // Gray
+                        } else {
+                            // Directional edges in blue
+                            cairo_set_source_rgba(cr, 0.2, 0.2, 0.8, 0.7); // Blue
+                        }
+                        if (a->is_bidirectional) {
+                            cairo_set_line_width(cr, 0.8 / app->zoom_factor); // Bidirectional streets
+                        } else {
+                            cairo_set_line_width(cr, 1.2 / app->zoom_factor); // Oneway streets - slightly thicker
+                        }
                     }
                     
                     cairo_move_to(cr, x1, y1);
                     cairo_line_to(cr, x2, y2);
                     cairo_stroke(cr);
+                    
+                    // Draw arrow for directional edges (not bidirectional)
+                    if (!a->is_bidirectional && !is_shortest_path_edge) {
+                        // Calculate arrow position and direction
+                        double dx = x2 - x1;
+                        double dy = y2 - y1;
+                        double length = sqrt(dx*dx + dy*dy);
+                        
+                        if (length > 0) {
+                            // Normalize direction vector
+                            dx /= length;
+                            dy /= length;
+                            
+                            // Arrow position (75% along the line)
+                            double arrow_x = x1 + dx * length * 0.75;
+                            double arrow_y = y1 + dy * length * 0.75;
+                            
+                            // Arrow size based on zoom - increased for better visibility
+                            double arrow_size = 12.0 / app->zoom_factor;
+                            if (arrow_size < 6.0) arrow_size = 6.0;
+                            if (arrow_size > 20.0) arrow_size = 20.0;
+                            
+                            // Draw arrowhead
+                            cairo_save(cr);
+                            cairo_translate(cr, arrow_x, arrow_y);
+                            cairo_rotate(cr, atan2(dy, dx));
+                            
+                            cairo_move_to(cr, 0, 0);
+                            cairo_line_to(cr, -arrow_size, -arrow_size/2);
+                            cairo_line_to(cr, -arrow_size, arrow_size/2);
+                            cairo_close_path(cr);
+                            cairo_fill(cr);
+                            
+                            cairo_restore(cr);
+                        }
+                    }
                 }
             }
         }
@@ -558,6 +616,7 @@ gboolean on_graph_button_press(GtkWidget *widget, GdkEventButton *event, gpointe
 
 // Callback para fim do drag (botão liberado)
 gboolean on_graph_button_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+    (void)widget; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     
     if (event->button == 1) { // Botão esquerdo
@@ -589,6 +648,7 @@ gboolean on_graph_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoint
 
 // Callback para abrir arquivo OSM
 void on_open_osm_clicked(GtkMenuItem *menuitem, gpointer user_data) {
+    (void)menuitem; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     
     GtkWidget *dialog = gtk_file_chooser_dialog_new("Open OSM File",
@@ -669,11 +729,13 @@ void on_open_osm_clicked(GtkMenuItem *menuitem, gpointer user_data) {
 
 // Callback para load OSM via toolbar
 void on_load_osm_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    (void)toolbutton; // Suppress unused parameter warning
     on_open_osm_clicked(NULL, user_data);
 }
 
 // Callback para encontrar caminho mais curto
 void on_find_path_clicked(GtkButton *button, gpointer user_data) {
+    (void)button; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     
     if (!app->grafo) {
@@ -785,6 +847,7 @@ void on_find_path_clicked(GtkButton *button, gpointer user_data) {
 
 // Callback para limpar
 void on_clear_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    (void)toolbutton; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     
     gtk_entry_set_text(GTK_ENTRY(app->start_entry), "");
@@ -817,6 +880,8 @@ void on_clear_clicked(GtkToolButton *toolbutton, gpointer user_data) {
 
 // Callback para sair
 void on_quit_clicked(GtkMenuItem *menuitem, gpointer user_data) {
+    (void)menuitem; // Suppress unused parameter warning
+    (void)user_data; // Suppress unused parameter warning
     gtk_main_quit();
 }
 
@@ -830,6 +895,8 @@ void cleanup_app_data(AppData *app) {
 
 // Callback para fechamento da janela
 gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
+    (void)widget; // Suppress unused parameter warning
+    (void)event; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     cleanup_app_data(app);
     gtk_main_quit();
@@ -850,6 +917,7 @@ Ponto* buscar_ponto_por_id(Grafo *grafo, long long id) {
 
 // Callback functions for edit mode buttons
 void on_edit_create_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    (void)toolbutton; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     
     app->edit_state.current_mode = EDIT_MODE_CREATE;
@@ -864,6 +932,7 @@ void on_edit_create_clicked(GtkToolButton *toolbutton, gpointer user_data) {
 }
 
 void on_edit_delete_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    (void)toolbutton; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     
     app->edit_state.current_mode = EDIT_MODE_DELETE;
@@ -878,6 +947,7 @@ void on_edit_delete_clicked(GtkToolButton *toolbutton, gpointer user_data) {
 }
 
 void on_edit_connect_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    (void)toolbutton; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     
     app->edit_state.current_mode = EDIT_MODE_CONNECT;
@@ -892,6 +962,7 @@ void on_edit_connect_clicked(GtkToolButton *toolbutton, gpointer user_data) {
 }
 
 void on_edit_normal_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    (void)toolbutton; // Suppress unused parameter warning
     AppData *app = (AppData *)user_data;
     
     app->edit_state.current_mode = EDIT_MODE_NONE;
@@ -917,6 +988,10 @@ int main(int argc, char *argv[]) {
     
     // Criar dados da aplicação
     AppData *app = g_malloc0(sizeof(AppData));
+    
+    // Inicializar dados básicos
+    app->grafo = NULL;
+    app->current_file = NULL;
     
     // Inicializar variáveis de zoom e pan
     app->zoom_factor = 1.0;
@@ -944,35 +1019,84 @@ int main(int argc, char *argv[]) {
     app->edit_state.next_node_id = 1;
     app->edit_state.next_way_id = 1;
     
-    // Obter widgets
+    // Obter widgets com verificação de erro
     app->window = GTK_WIDGET(gtk_builder_get_object(builder, "main_window"));
+    if (!app->window) {
+        g_error("Failed to get main_window from UI file");
+        return 1;
+    }
+    
     app->file_label = GTK_WIDGET(gtk_builder_get_object(builder, "file_label"));
+    if (!app->file_label) g_warning("Failed to get file_label from UI file");
+    
     app->stats_label = GTK_WIDGET(gtk_builder_get_object(builder, "stats_label"));
+    if (!app->stats_label) g_warning("Failed to get stats_label from UI file");
+    
     app->start_entry = GTK_WIDGET(gtk_builder_get_object(builder, "start_entry"));
+    if (!app->start_entry) g_warning("Failed to get start_entry from UI file");
+    
     app->end_entry = GTK_WIDGET(gtk_builder_get_object(builder, "end_entry"));
+    if (!app->end_entry) g_warning("Failed to get end_entry from UI file");
+    
     app->results_text = GTK_WIDGET(gtk_builder_get_object(builder, "results_text"));
+    if (!app->results_text) g_warning("Failed to get results_text from UI file");
+    
     app->graph_area = GTK_WIDGET(gtk_builder_get_object(builder, "graph_area"));
+    if (!app->graph_area) {
+        g_error("Failed to get graph_area from UI file - this is critical!");
+        return 1;
+    }
+    
     app->statusbar = GTK_WIDGET(gtk_builder_get_object(builder, "statusbar"));
+    if (!app->statusbar) g_warning("Failed to get statusbar from UI file");
     
     // Configurar status bar
-    app->status_context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->statusbar), "main");
+    if (app->statusbar) {
+        app->status_context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->statusbar), "main");
+    } else {
+        app->status_context_id = 0;
+    }
     
-    // Conectar sinais
-    g_signal_connect(app->window, "delete-event", G_CALLBACK(on_window_delete), app);
-    g_signal_connect(gtk_builder_get_object(builder, "open_osm_item"), "activate", G_CALLBACK(on_open_osm_clicked), app);
-    g_signal_connect(gtk_builder_get_object(builder, "quit_item"), "activate", G_CALLBACK(on_quit_clicked), app);
-    g_signal_connect(gtk_builder_get_object(builder, "load_button"), "clicked", G_CALLBACK(on_load_osm_clicked), app);
-    g_signal_connect(gtk_builder_get_object(builder, "clear_button"), "clicked", G_CALLBACK(on_clear_clicked), app);
-    g_signal_connect(gtk_builder_get_object(builder, "find_path_button"), "clicked", G_CALLBACK(on_find_path_clicked), app);
-    g_signal_connect(gtk_builder_get_object(builder, "edit_create_button"), "clicked", G_CALLBACK(on_edit_create_clicked), app);
-    g_signal_connect(gtk_builder_get_object(builder, "edit_delete_button"), "clicked", G_CALLBACK(on_edit_delete_clicked), app);
-    g_signal_connect(gtk_builder_get_object(builder, "edit_connect_button"), "clicked", G_CALLBACK(on_edit_connect_clicked), app);
-    g_signal_connect(gtk_builder_get_object(builder, "edit_normal_button"), "clicked", G_CALLBACK(on_edit_normal_clicked), app);
-    g_signal_connect(app->graph_area, "draw", G_CALLBACK(on_graph_draw), app);
-    g_signal_connect(app->graph_area, "button-press-event", G_CALLBACK(on_graph_button_press), app);
-    g_signal_connect(app->graph_area, "button-release-event", G_CALLBACK(on_graph_button_release), app);
-    g_signal_connect(app->graph_area, "motion-notify-event", G_CALLBACK(on_graph_motion_notify), app);
-    g_signal_connect(app->graph_area, "scroll-event", G_CALLBACK(on_graph_scroll), app);
+    // Conectar sinais com verificação de NULL
+    if (app->window) {
+        g_signal_connect(app->window, "delete-event", G_CALLBACK(on_window_delete), app);
+    }
+    
+    GObject *widget;
+    widget = gtk_builder_get_object(builder, "open_osm_item");
+    if (widget) g_signal_connect(widget, "activate", G_CALLBACK(on_open_osm_clicked), app);
+    
+    widget = gtk_builder_get_object(builder, "quit_item");
+    if (widget) g_signal_connect(widget, "activate", G_CALLBACK(on_quit_clicked), app);
+    
+    widget = gtk_builder_get_object(builder, "load_button");
+    if (widget) g_signal_connect(widget, "clicked", G_CALLBACK(on_load_osm_clicked), app);
+    
+    widget = gtk_builder_get_object(builder, "clear_button");
+    if (widget) g_signal_connect(widget, "clicked", G_CALLBACK(on_clear_clicked), app);
+    
+    widget = gtk_builder_get_object(builder, "find_path_button");
+    if (widget) g_signal_connect(widget, "clicked", G_CALLBACK(on_find_path_clicked), app);
+    
+    widget = gtk_builder_get_object(builder, "edit_create_button");
+    if (widget) g_signal_connect(widget, "clicked", G_CALLBACK(on_edit_create_clicked), app);
+    
+    widget = gtk_builder_get_object(builder, "edit_delete_button");
+    if (widget) g_signal_connect(widget, "clicked", G_CALLBACK(on_edit_delete_clicked), app);
+    
+    widget = gtk_builder_get_object(builder, "edit_connect_button");
+    if (widget) g_signal_connect(widget, "clicked", G_CALLBACK(on_edit_connect_clicked), app);
+    
+    widget = gtk_builder_get_object(builder, "edit_normal_button");
+    if (widget) g_signal_connect(widget, "clicked", G_CALLBACK(on_edit_normal_clicked), app);
+    
+    if (app->graph_area) {
+        g_signal_connect(app->graph_area, "draw", G_CALLBACK(on_graph_draw), app);
+        g_signal_connect(app->graph_area, "button-press-event", G_CALLBACK(on_graph_button_press), app);
+        g_signal_connect(app->graph_area, "button-release-event", G_CALLBACK(on_graph_button_release), app);
+        g_signal_connect(app->graph_area, "motion-notify-event", G_CALLBACK(on_graph_motion_notify), app);
+        g_signal_connect(app->graph_area, "scroll-event", G_CALLBACK(on_graph_scroll), app);
+    }
     
     // Habilitar eventos necessários no graph_area
     gtk_widget_add_events(app->graph_area, 

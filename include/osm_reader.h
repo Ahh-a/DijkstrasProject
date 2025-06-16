@@ -15,6 +15,7 @@ typedef struct {
     long long origem;
     long long destino;
     double peso;
+    int is_bidirectional;  // 1 para bidirectional (mão dupla), 0 para direcional (mão única)
 } Aresta;
 
 // Estrutura para armazenar o grafo

@@ -53,4 +53,13 @@ gboolean resize_edges_array(Grafo *grafo, size_t new_size);
 gboolean save_graph_to_osm(Grafo *grafo, const char *filename);
 void mark_graph_as_modified(Grafo *grafo);
 
+// Funções para controle de direção das arestas
+gboolean set_edge_bidirectional(Grafo *grafo, long long from_id, long long to_id, gboolean is_bidirectional);
+gboolean is_edge_bidirectional(Grafo *grafo, long long from_id, long long to_id);
+int count_oneway_edges(Grafo *grafo);
+int count_bidirectional_edges(Grafo *grafo);
+
+// Função para controlar direção de conexão entre dois nós
+gboolean set_connection_direction(Grafo *grafo, long long node1, long long node2, int direction_type);
+
 #endif // EDIT_H

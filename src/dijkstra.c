@@ -222,14 +222,15 @@ ResultadoDijkstra* dijkstra(Grafo *grafo, long origem_id, long destino_id) {
             Aresta *aresta = &grafo->arestas[i];
             long vizinho_id = -1;
             
-            // Determinar se esta aresta sai do ponto atual
+            // Determinar se esta aresta sai do ponto atual, respeitando direção
             if (aresta->origem == atual.ponto_id) {
+                // Esta aresta sai do ponto atual
                 vizinho_id = aresta->destino;
-            } else if (aresta->destino == atual.ponto_id) {
-                // Se as arestas são bidirecionais
+            } else if (aresta->destino == atual.ponto_id && aresta->is_bidirectional) {
+                // Esta aresta chega ao ponto atual, mas só podemos usar na direção reversa se for bidirecional
                 vizinho_id = aresta->origem;
             } else {
-                continue; // Esta aresta não conecta ao ponto atual
+                continue; // Esta aresta não pode ser usada do ponto atual
             }
             
             int indice_vizinho = encontrar_indice_ponto(grafo, vizinho_id);
