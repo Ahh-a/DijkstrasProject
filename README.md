@@ -26,7 +26,7 @@ Uma implementação completa do algoritmo de caminho mais curto de Dijkstra com 
 
 ## Instalação de Dependências
 
-### 📱 Linux (Ubuntu/Debian)
+###  Linux (Ubuntu/Debian)
 
 ```bash
 # Atualizar repositórios
@@ -50,33 +50,7 @@ ninja --version
 pkg-config --modversion gtk+-3.0
 ```
 
-### 📱 Linux (Fedora/RHEL/CentOS)
-
-```bash
-# Instalar dependências
-sudo dnf install -y \
-    gcc \
-    meson \
-    ninja-build \
-    pkgconf-devel \
-    gtk3-devel \
-    cairo-devel \
-    libxml2-devel \
-    glib2-devel
-
-# Ou para sistemas mais antigos (CentOS 7)
-sudo yum install -y \
-    gcc \
-    meson \
-    ninja-build \
-    pkgconfig \
-    gtk3-devel \
-    cairo-devel \
-    libxml2-devel \
-    glib2-devel
-```
-
-### 📱 Linux (Arch Linux)
+###  Linux (Arch Linux)
 
 ```bash
 # Instalar dependências
@@ -91,7 +65,7 @@ sudo pacman -S \
     glib2
 ```
 
-### 🪟 Windows
+###  Windows
 
 #### Opção 1: MSYS2 (Recomendado)
 
@@ -147,7 +121,7 @@ cd vcpkg
 pip install meson ninja
 ```
 
-### 🍎 macOS
+###  macOS
 
 ```bash
 # Instalar Homebrew (se não tiver)
