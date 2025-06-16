@@ -6,6 +6,7 @@
 #include "osm_reader.h"
 #include "graph.h"
 #include "dijkstra.h"
+#include "edit.h"
 
 // Forward declarations
 Ponto* buscar_ponto_por_id(Grafo *grafo, long long id);
@@ -45,6 +46,9 @@ typedef struct {
     long *shortest_path;
     int shortest_path_length;
     gboolean has_shortest_path;
+    
+    // Estado de edição
+    EditState edit_state;
 } AppData;
 
 // Função para atualizar o status bar
@@ -211,7 +215,10 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
                 // Check if this point is selected
                 gboolean is_start = (app->has_start_point && p->id == app->selected_start_id);
                 gboolean is_end = (app->has_end_point && p->id == app->selected_end_id);
+                gboolean is_edit_selected = (app->edit_state.has_selected_node && p->id == app->edit_state.selected_node_id);
+                gboolean is_connecting_from = (app->edit_state.is_connecting && p->id == app->edit_state.connecting_from_id);
                 
+                // Determinar cor baseada no estado
                 if (is_start) {
                     // Start point - green
                     cairo_set_source_rgb(cr, 0.2, 0.8, 0.2);
@@ -222,9 +229,32 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
                     cairo_set_source_rgb(cr, 0.8, 0.2, 0.2);
                     cairo_arc(cr, x, y, point_radius + 2, 0, 2 * M_PI);
                     cairo_fill(cr);
+                } else if (is_connecting_from) {
+                    // Connection source - blue
+                    cairo_set_source_rgb(cr, 0.2, 0.2, 0.8);
+                    cairo_arc(cr, x, y, point_radius + 2, 0, 2 * M_PI);
+                    cairo_fill(cr);
+                } else if (is_edit_selected) {
+                    // Edit selected - orange
+                    cairo_set_source_rgb(cr, 1.0, 0.5, 0.0);
+                    cairo_arc(cr, x, y, point_radius + 2, 0, 2 * M_PI);
+                    cairo_fill(cr);
                 } else {
-                    // Normal point - purple
-                    cairo_set_source_rgb(cr, 0.8, 0.2, 0.8);
+                    // Normal point - color depends on edit mode
+                    switch (app->edit_state.current_mode) {
+                        case EDIT_MODE_CREATE:
+                            cairo_set_source_rgb(cr, 0.6, 0.8, 0.6); // Light green
+                            break;
+                        case EDIT_MODE_DELETE:
+                            cairo_set_source_rgb(cr, 0.8, 0.6, 0.6); // Light red
+                            break;
+                        case EDIT_MODE_CONNECT:
+                            cairo_set_source_rgb(cr, 0.6, 0.6, 0.8); // Light blue
+                            break;
+                        default:
+                            cairo_set_source_rgb(cr, 0.8, 0.2, 0.8); // Purple (normal)
+                            break;
+                    }
                     cairo_arc(cr, x, y, point_radius, 0, 2 * M_PI);
                     cairo_fill(cr);
                 }
@@ -331,72 +361,191 @@ Ponto* find_closest_point(AppData *app, double click_x, double click_y) {
     return closest;
 }
 
-// Callback para início do drag (botão pressionado)
+// Função para converter coordenadas de tela para lat/lon
+void screen_to_latlon(AppData *app, double screen_x, double screen_y, double *lat, double *lon) {
+    if (!app->grafo) return;
+    
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(app->graph_area, &allocation);
+    
+    // Calculate bounds and scale (same as drawing function)
+    double min_lat = 90.0, max_lat = -90.0;
+    double min_lon = 180.0, max_lon = -180.0;
+    
+    for (size_t i = 0; i < app->grafo->num_pontos; i++) {
+        Ponto *p = &app->grafo->pontos[i];
+        if (p->lat < min_lat) min_lat = p->lat;
+        if (p->lat > max_lat) max_lat = p->lat;
+        if (p->lon < min_lon) min_lon = p->lon;
+        if (p->lon > max_lon) max_lon = p->lon;
+    }
+    
+    double lat_range = max_lat - min_lat;
+    double lon_range = max_lon - min_lon;
+    
+    if (lat_range <= 0.0 || lon_range <= 0.0) return;
+    
+    double scale_x = allocation.width / lon_range;
+    double scale_y = allocation.height / lat_range;
+    double base_scale = (scale_x < scale_y) ? scale_x : scale_y;
+    base_scale *= 0.9;
+    double scale = base_scale * app->zoom_factor;
+    
+    double center_x = allocation.width / 2.0;
+    double center_y = allocation.height / 2.0;
+    double map_center_x = (min_lon + max_lon) / 2.0;
+    double map_center_y = (min_lat + max_lat) / 2.0;
+    
+    // Convert back from screen coordinates
+    *lon = ((screen_x - center_x - app->pan_x) / scale) + map_center_x;
+    *lat = -((screen_y - center_y - app->pan_y) / scale) + map_center_y;
+}
+
+// Função para lidar com cliques no modo de edição
+gboolean handle_edit_click(AppData *app, double click_x, double click_y, GtkWidget *widget) {
+    if (!app->grafo) return FALSE;
+    
+    switch (app->edit_state.current_mode) {
+        case EDIT_MODE_CREATE: {
+            // Converter coordenadas de tela para lat/lon
+            double lat, lon;
+            screen_to_latlon(app, click_x, click_y, &lat, &lon);
+            
+            // Criar novo nó
+            if (create_node_at_position(app->grafo, &app->edit_state, lat, lon)) {
+                update_node_ids(&app->edit_state, app->grafo);
+                mark_graph_as_modified(app->grafo);
+                update_status(app, "New node created. Click to create more nodes.");
+                gtk_widget_queue_draw(widget);
+                return TRUE;
+            }
+            break;
+        }
+        
+        case EDIT_MODE_DELETE: {
+            // Encontrar nó mais próximo
+            Ponto *clicked_point = find_closest_point(app, click_x, click_y);
+            if (clicked_point) {
+                if (can_delete_node(app->grafo, clicked_point->id)) {
+                    if (delete_node(app->grafo, &app->edit_state, clicked_point->id)) {
+                        mark_graph_as_modified(app->grafo);
+                        update_status(app, "Node deleted. Click to delete more nodes.");
+                        gtk_widget_queue_draw(widget);
+                        return TRUE;
+                    }
+                }
+            }
+            break;
+        }
+        
+        case EDIT_MODE_CONNECT: {
+            // Encontrar nó mais próximo
+            Ponto *clicked_point = find_closest_point(app, click_x, click_y);
+            if (clicked_point) {
+                if (!app->edit_state.is_connecting) {
+                    // Primeiro clique - selecionar nó de origem
+                    app->edit_state.is_connecting = TRUE;
+                    app->edit_state.connecting_from_id = clicked_point->id;
+                    update_status(app, "Click another node to connect to this one.");
+                    gtk_widget_queue_draw(widget);
+                    return TRUE;
+                } else {
+                    // Segundo clique - conectar aos nós
+                    if (clicked_point->id != app->edit_state.connecting_from_id) {
+                        if (connect_nodes(app->grafo, &app->edit_state, 
+                                        app->edit_state.connecting_from_id, clicked_point->id)) {
+                            mark_graph_as_modified(app->grafo);
+                            update_status(app, "Nodes connected. Click a node to start new connection.");
+                        } else {
+                            update_status(app, "Failed to connect nodes. Click a node to start new connection.");
+                        }
+                    } else {
+                        update_status(app, "Cannot connect node to itself. Click a different node.");
+                    }
+                    
+                    // Reset connection state
+                    app->edit_state.is_connecting = FALSE;
+                    app->edit_state.connecting_from_id = 0;
+                    gtk_widget_queue_draw(widget);
+                    return TRUE;
+                }
+            }
+            break;
+        }
+        
+        default:
+            break;
+    }
+    
+    return FALSE;
+}
+
+// Callback para cliques no botão do mouse na área do grafo
 gboolean on_graph_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
     AppData *app = (AppData *)user_data;
     
-    printf("DEBUG: Button press - button: %d, x: %.2f, y: %.2f, state: %d\n", 
-           event->button, event->x, event->y, event->state);
-    printf("DEBUG: GDK_CONTROL_MASK = %d, Ctrl pressed: %s\n", 
-           GDK_CONTROL_MASK, (event->state & GDK_CONTROL_MASK) ? "YES" : "NO");
-    
     if (event->button == 1) { // Botão esquerdo
-        // Check if Ctrl is pressed for point selection
+        // Verificar se está em modo de edição
+        if (app->edit_state.current_mode != EDIT_MODE_NONE) {
+            if (handle_edit_click(app, event->x, event->y, widget)) {
+                return TRUE;
+            }
+        }
+        
+        // Verificar se Ctrl está pressionado para seleção de pontos
         if (event->state & GDK_CONTROL_MASK) {
-            printf("DEBUG: Ctrl+click detected, looking for closest point...\n");
-            // Point selection mode
             Ponto *clicked_point = find_closest_point(app, event->x, event->y);
             if (clicked_point) {
-                printf("DEBUG: Found point %lld!\n", clicked_point->id);
-                
                 if (!app->has_start_point) {
-                    // Select as start point
+                    // Selecionar como ponto inicial
                     app->selected_start_id = clicked_point->id;
                     app->has_start_point = TRUE;
                     
-                    // Update entry field
+                    // Atualizar entry
                     gchar *id_str = g_strdup_printf("%lld", clicked_point->id);
                     gtk_entry_set_text(GTK_ENTRY(app->start_entry), id_str);
                     g_free(id_str);
                     
-                    printf("DEBUG: Selected as START point: %lld\n", clicked_point->id);
-                    update_status(app, "Start point selected. Hold Ctrl and click again to select end point.");
+                    update_status(app, "Start point selected. Hold Ctrl and click another point to select end point.");
                 } else if (!app->has_end_point) {
-                    // Select as end point
+                    // Selecionar como ponto final
                     app->selected_end_id = clicked_point->id;
                     app->has_end_point = TRUE;
                     
-                    // Update entry field
+                    // Atualizar entry
                     gchar *id_str = g_strdup_printf("%lld", clicked_point->id);
                     gtk_entry_set_text(GTK_ENTRY(app->end_entry), id_str);
                     g_free(id_str);
                     
-                    printf("DEBUG: Selected as END point: %lld\n", clicked_point->id);
-                    
-                    update_status(app, "End point selected. Click 'Find Shortest Path' or hold Ctrl and click to select new points.");
+                    update_status(app, "End point selected. Click 'Find Shortest Path' to calculate route.");
                 } else {
-                    // Both points selected, reset and start over
+                    // Reset e selecionar novo ponto inicial
                     app->selected_start_id = clicked_point->id;
                     app->selected_end_id = 0;
                     app->has_start_point = TRUE;
                     app->has_end_point = FALSE;
                     
-                    // Update entry fields
+                    // Limpar caminho mais curto
+                    if (app->shortest_path) {
+                        free(app->shortest_path);
+                        app->shortest_path = NULL;
+                    }
+                    app->has_shortest_path = FALSE;
+                    app->shortest_path_length = 0;
+                    
+                    // Atualizar entries
                     gchar *id_str = g_strdup_printf("%lld", clicked_point->id);
                     gtk_entry_set_text(GTK_ENTRY(app->start_entry), id_str);
                     gtk_entry_set_text(GTK_ENTRY(app->end_entry), "");
                     g_free(id_str);
                     
-                    update_status(app, "New start point selected. Hold Ctrl and click again to select end point.");
+                    update_status(app, "New start point selected. Hold Ctrl and click another point to select end point.");
                 }
                 
                 gtk_widget_queue_draw(widget);
                 return TRUE;
-            } else {
-                printf("DEBUG: No point found near click location\n");
             }
         } else {
-            printf("DEBUG: Normal click (no Ctrl), starting drag mode\n");
             // Normal drag mode
             app->dragging = TRUE;
             app->last_mouse_x = event->x;
@@ -491,6 +640,9 @@ void on_open_osm_clicked(GtkMenuItem *menuitem, gpointer user_data) {
             app->zoom_factor = 1.0;
             app->pan_x = 0.0;
             app->pan_y = 0.0;
+            
+            // Update edit state with proper node IDs
+            update_node_ids(&app->edit_state, app->grafo);
             
             update_file_info(app);
             update_status(app, "OSM file loaded successfully. Hold Ctrl and click points to select them.");
@@ -696,6 +848,63 @@ Ponto* buscar_ponto_por_id(Grafo *grafo, long long id) {
     return NULL;
 }
 
+// Callback functions for edit mode buttons
+void on_edit_create_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    AppData *app = (AppData *)user_data;
+    
+    app->edit_state.current_mode = EDIT_MODE_CREATE;
+    app->edit_state.is_connecting = FALSE;
+    app->edit_state.connecting_from_id = 0;
+    
+    update_status(app, "Create Mode: Click on empty space to create new nodes.");
+    
+    if (app->grafo) {
+        gtk_widget_queue_draw(app->graph_area);
+    }
+}
+
+void on_edit_delete_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    AppData *app = (AppData *)user_data;
+    
+    app->edit_state.current_mode = EDIT_MODE_DELETE;
+    app->edit_state.is_connecting = FALSE;
+    app->edit_state.connecting_from_id = 0;
+    
+    update_status(app, "Delete Mode: Click on nodes to delete them.");
+    
+    if (app->grafo) {
+        gtk_widget_queue_draw(app->graph_area);
+    }
+}
+
+void on_edit_connect_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    AppData *app = (AppData *)user_data;
+    
+    app->edit_state.current_mode = EDIT_MODE_CONNECT;
+    app->edit_state.is_connecting = FALSE;
+    app->edit_state.connecting_from_id = 0;
+    
+    update_status(app, "Connect Mode: Click two nodes to connect them.");
+    
+    if (app->grafo) {
+        gtk_widget_queue_draw(app->graph_area);
+    }
+}
+
+void on_edit_normal_clicked(GtkToolButton *toolbutton, gpointer user_data) {
+    AppData *app = (AppData *)user_data;
+    
+    app->edit_state.current_mode = EDIT_MODE_NONE;
+    app->edit_state.is_connecting = FALSE;
+    app->edit_state.connecting_from_id = 0;
+    
+    update_status(app, "Normal Mode: Hold Ctrl and click points to select them for Dijkstra.");
+    
+    if (app->grafo) {
+        gtk_widget_queue_draw(app->graph_area);
+    }
+}
+
 int main(int argc, char *argv[]) {
     gtk_init(&argc, &argv);
     
@@ -726,6 +935,15 @@ int main(int argc, char *argv[]) {
     app->shortest_path_length = 0;
     app->has_shortest_path = FALSE;
     
+    // Inicializar estado de edição
+    app->edit_state.current_mode = EDIT_MODE_NONE;
+    app->edit_state.is_connecting = FALSE;
+    app->edit_state.connecting_from_id = 0;
+    app->edit_state.has_selected_node = FALSE;
+    app->edit_state.selected_node_id = 0;
+    app->edit_state.next_node_id = 1;
+    app->edit_state.next_way_id = 1;
+    
     // Obter widgets
     app->window = GTK_WIDGET(gtk_builder_get_object(builder, "main_window"));
     app->file_label = GTK_WIDGET(gtk_builder_get_object(builder, "file_label"));
@@ -746,6 +964,10 @@ int main(int argc, char *argv[]) {
     g_signal_connect(gtk_builder_get_object(builder, "load_button"), "clicked", G_CALLBACK(on_load_osm_clicked), app);
     g_signal_connect(gtk_builder_get_object(builder, "clear_button"), "clicked", G_CALLBACK(on_clear_clicked), app);
     g_signal_connect(gtk_builder_get_object(builder, "find_path_button"), "clicked", G_CALLBACK(on_find_path_clicked), app);
+    g_signal_connect(gtk_builder_get_object(builder, "edit_create_button"), "clicked", G_CALLBACK(on_edit_create_clicked), app);
+    g_signal_connect(gtk_builder_get_object(builder, "edit_delete_button"), "clicked", G_CALLBACK(on_edit_delete_clicked), app);
+    g_signal_connect(gtk_builder_get_object(builder, "edit_connect_button"), "clicked", G_CALLBACK(on_edit_connect_clicked), app);
+    g_signal_connect(gtk_builder_get_object(builder, "edit_normal_button"), "clicked", G_CALLBACK(on_edit_normal_clicked), app);
     g_signal_connect(app->graph_area, "draw", G_CALLBACK(on_graph_draw), app);
     g_signal_connect(app->graph_area, "button-press-event", G_CALLBACK(on_graph_button_press), app);
     g_signal_connect(app->graph_area, "button-release-event", G_CALLBACK(on_graph_button_release), app);

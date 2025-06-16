@@ -14,42 +14,6 @@ Uma implementação completa do algoritmo de caminho mais curto de Dijkstra com 
 - **Busca de Caminhos**: Cálculo interativo de caminhos entre pontos selecionados com feedback visual
 - **Diferenciação Visual**: Pontos selecionados são destacados com cores diferentes (verde=início, vermelho=fim)
 
-## Estrutura do Projeto
-
-```
-DijkstrasProject/
-├── include/
-│   ├── osm_reader.h        # Análise de arquivos OSM e estruturas de grafo
-│   ├── graph.h             # Funções de manipulação de grafo
-│   └── dijkstra.h          # Implementação do algoritmo de Dijkstra
-├── src/
-│   ├── main.c              # Aplicação GTK e callbacks da UI
-│   ├── osm_reader.c        # Análise XML OSM com libxml2
-│   ├── osm_reader_new.c    # Implementação alternativa do analisador OSM
-│   ├── graph.c             # Criação e manipulação de grafo
-│   └── dijkstra.c          # Algoritmo de caminho mais curto
-├── data/
-│   ├── my_window.ui        # Layout da interface GTK
-│   └── menu.ui             # Menu da aplicação
-├── test_data/
-│   └── simple_test.osm     # Arquivo OSM de exemplo para testes
-├── test/
-│   ├── test_events.c       # Teste básico de detecção de eventos
-│   ├── test_simple_selection.c # Teste abrangente de seleção de pontos
-│   ├── test_selection.sh   # Script de teste automatizado
-│   ├── verify_fix.sh       # Script de verificação do projeto
-│   ├── test_debug.c        # Programa de depuração
-│   ├── test_coordinates.c  # Teste de coordenadas
-│   ├── test_draw.c         # Teste de desenho
-│   ├── test_locale.c       # Teste de localização
-│   ├── test_parsing.c      # Teste de análise
-│   ├── test_point_selection.c # Teste de seleção de pontos
-│   └── test_app_debug.c    # Depuração da aplicação
-├── builddir/               # Diretório de compilação (Meson)
-│   └── DijikstrasProject   # Executável compilado
-└── casaPrimo.osm          # Arquivo OSM do mundo real para teste
-```
-
 ## Dependências
 
 - **GTK+ 3.0**: Framework de interface gráfica
@@ -57,11 +21,159 @@ DijkstrasProject/
 - **libxml2**: Análise XML para arquivos OSM
 - **GLib/GIO**: Bibliotecas principais
 - **Biblioteca Math**: Funções matemáticas (distância Haversine)
+- **Meson**: Sistema de compilação
+- **Ninja**: Backend de compilação
+
+## Instalação de Dependências
+
+### 📱 Linux (Ubuntu/Debian)
+
+```bash
+# Atualizar repositórios
+sudo apt update
+
+# Instalar dependências principais
+sudo apt install -y \
+    build-essential \
+    meson \
+    ninja-build \
+    pkg-config \
+    libgtk-3-dev \
+    libcairo2-dev \
+    libxml2-dev \
+    libglib2.0-dev \
+    libgio-2.0-dev
+
+# Verificar instalação
+meson --version
+ninja --version
+pkg-config --modversion gtk+-3.0
+```
+
+### 📱 Linux (Fedora/RHEL/CentOS)
+
+```bash
+# Instalar dependências
+sudo dnf install -y \
+    gcc \
+    meson \
+    ninja-build \
+    pkgconf-devel \
+    gtk3-devel \
+    cairo-devel \
+    libxml2-devel \
+    glib2-devel
+
+# Ou para sistemas mais antigos (CentOS 7)
+sudo yum install -y \
+    gcc \
+    meson \
+    ninja-build \
+    pkgconfig \
+    gtk3-devel \
+    cairo-devel \
+    libxml2-devel \
+    glib2-devel
+```
+
+### 📱 Linux (Arch Linux)
+
+```bash
+# Instalar dependências
+sudo pacman -S \
+    base-devel \
+    meson \
+    ninja \
+    pkg-config \
+    gtk3 \
+    cairo \
+    libxml2 \
+    glib2
+```
+
+### 🪟 Windows
+
+#### Opção 1: MSYS2 (Recomendado)
+
+1. **Baixar e instalar MSYS2**:
+   - Baixe de: https://www.msys2.org/
+   - Execute o instalador e siga as instruções
+
+2. **Abrir terminal MSYS2 MINGW64** e instalar dependências:
+```bash
+# Atualizar pacotes
+pacman -Syu
+
+# Instalar toolchain de desenvolvimento
+pacman -S --needed \
+    mingw-w64-x86_64-toolchain \
+    mingw-w64-x86_64-meson \
+    mingw-w64-x86_64-ninja \
+    mingw-w64-x86_64-pkg-config \
+    mingw-w64-x86_64-gtk3 \
+    mingw-w64-x86_64-cairo \
+    mingw-w64-x86_64-libxml2 \
+    mingw-w64-x86_64-glib2
+
+# Verificar instalação
+meson --version
+ninja --version
+```
+
+#### Opção 2: Visual Studio + vcpkg
+
+1. **Instalar Visual Studio Community 2022**:
+   - Baixe de: https://visualstudio.microsoft.com/pt-br/vs/community/
+   - Inclua "Desenvolvimento para Desktop com C++"
+
+2. **Instalar vcpkg**:
+```cmd
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg integrate install
+```
+
+3. **Instalar dependências**:
+```cmd
+.\vcpkg install gtk:x64-windows
+.\vcpkg install cairo:x64-windows
+.\vcpkg install libxml2:x64-windows
+.\vcpkg install glib:x64-windows
+```
+
+4. **Instalar Meson e Ninja**:
+```cmd
+pip install meson ninja
+```
+
+### 🍎 macOS
+
+```bash
+# Instalar Homebrew (se não tiver)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Instalar dependências
+brew install \
+    meson \
+    ninja \
+    pkg-config \
+    gtk+3 \
+    cairo \
+    libxml2 \
+    glib
+
+# Verificar instalação
+meson --version
+ninja --version
+pkg-config --modversion gtk+-3.0
+```
 
 ## Compilação
 
 Este projeto usa o sistema de compilação Meson:
 
+### Linux/macOS:
 ```bash
 # Configurar compilação
 meson setup build
@@ -76,10 +188,59 @@ ninja -C build
 ./builddir/DijikstrasProject
 ```
 
+### Windows (MSYS2):
+```bash
+# No terminal MSYS2 MINGW64
+meson setup build
+ninja -C build
+./build/DijikstrasProject.exe
+```
+
+### Windows (Visual Studio):
+```cmd
+# Usando Developer Command Prompt
+meson setup build --backend vs
+meson compile -C build
+.\build\DijikstrasProject.exe
+```
+
+## Resolução de Problemas Comuns
+
+### ❌ Erro: "meson: command not found"
+**Linux/macOS**: Instale via gerenciador de pacotes ou pip:
+```bash
+pip3 install meson ninja
+```
+
+**Windows**: Use MSYS2 ou instale Python + pip
+
+### ❌ Erro: "Package 'gtk+-3.0' not found"
+**Linux**: Instale o pacote dev:
+```bash
+# Ubuntu/Debian
+sudo apt install libgtk-3-dev
+
+# Fedora
+sudo dnf install gtk3-devel
+```
+
+**Windows**: Certifique-se de usar o terminal MSYS2 MINGW64
+
+### ❌ Erro de compilação no Windows
+- Use sempre o terminal **MSYS2 MINGW64**, não o MSYS2 comum
+- Certifique-se que todas as dependências foram instaladas com `mingw-w64-x86_64-`
+
+### ❌ Problemas de codificação de caracteres
+Se você vir caracteres estranhos na interface:
+```bash
+export LANG=pt_BR.UTF-8
+export LC_ALL=pt_BR.UTF-8
+```
+
 ## Uso Interativo
 
 ### Controles do Mouse
-- **Zoom**: Use a roda do mouse para ampliar/reduzir (limitado entre 0.1x e 50x)
+- **Zoom**: Use a roda do mouse para ampliar/reduzir (limitado entre 0.1x e 50x) - centralizado no cursor
 - **Panorâmica**: Clique e arraste com o botão esquerdo para mover pelo mapa
 - **Seleção de Pontos**: Segure Ctrl e clique nos pontos para selecioná-los para busca de caminhos
 
@@ -90,12 +251,42 @@ ninja -C build
 4. **Encontrar Caminho**: Clique no botão "Encontrar Caminho" ou digite os IDs dos pontos manualmente
 5. **Resetar Seleção**: Segure Ctrl e clique novamente para começar de novo
 
+### 🔧 **Modos de Edição (NOVO!)**
+
+A aplicação agora inclui ferramentas completas de edição de grafos:
+
+#### Modos Disponíveis:
+- **🟢 Modo Normal**: Navegação e seleção de pontos para Dijkstra (padrão)
+- **➕ Modo Criar**: Clique em espaço vazio para criar novos nós
+- **❌ Modo Deletar**: Clique em nós para deletá-los (com validação de conexões)
+- **🔗 Modo Conectar**: Clique em dois nós para conectá-los com cálculo automático de distância
+
+#### Como Usar os Modos de Edição:
+1. **Ativar Modo**: Clique nos botões da barra de ferramentas (Create Node, Delete Node, Connect Nodes, Normal Mode)
+2. **Feedback Visual**: Os nós mudam de cor baseado no modo ativo:
+   - Verde claro: Modo criar
+   - Vermelho claro: Modo deletar  
+   - Azul claro: Modo conectar
+   - Azul escuro: Nó selecionado para conexão
+   - Laranja: Nó selecionado para edição
+3. **Operações**:
+   - **Criar**: Clique em qualquer lugar vazio para adicionar um novo nó
+   - **Deletar**: Clique em um nó para removê-lo (só permite nós com ≤2 conexões)
+   - **Conectar**: Clique no primeiro nó, depois no segundo para criar uma aresta
+   - **Normal**: Retorna ao modo padrão de navegação e seleção Dijkstra
+
+#### Características Avançadas:
+- **Cálculo automático de distância**: Novas conexões usam fórmula Haversine
+- **Validação de operações**: Previne deletar nós críticos com muitas conexões
+- **IDs automáticos**: Novos nós recebem IDs únicos automaticamente
+- **Zoom centrado no mouse**: Zoom mais intuitivo e preciso
+- **Visualização completa de caminhos**: Caminhos Dijkstra mostram rota completa em vermelho
+
 ### Entrada Manual de Pontos
 - Digite o ID do ponto de início no campo "Ponto de Início"
 - Digite o ID do ponto de fim no campo "Ponto de Fim"
 - Clique em "Encontrar Caminho" para calcular a rota mais curta
 - Veja os resultados no painel de resultados
-
 
 ## Testes e Depuração
 
@@ -127,3 +318,48 @@ gcc `pkg-config --cflags gtk+-3.0` -o test_events test_events.c `pkg-config --li
 gcc -I../include `pkg-config --cflags gtk+-3.0` -o test_simple_selection test_simple_selection.c ../src/osm_reader.c ../src/graph.c ../src/dijkstra.c `pkg-config --libs gtk+-3.0` -lxml2 -lm
 ./test_simple_selection
 ```
+
+## Estrutura do Projeto
+
+```
+📁 DijkstrasProject/
+├── 📄 README.md              # Documentação principal
+├── 📄 meson.build            # Configuração de compilação
+├── 📄 casaPrimo.osm          # Arquivo OSM de exemplo
+├── 📁 src/                   # Código fonte principal
+│   ├── 📄 main.c            # Interface gráfica e controle principal
+│   ├── 📄 osm_reader.c      # Leitor de arquivos OSM
+│   ├── 📄 dijkstra.c        # Implementação do algoritmo
+│   ├── 📄 graph.c           # Estruturas de dados do grafo
+│   └── 📄 edit.c            # Funcionalidades de edição (NOVO!)
+├── 📁 include/               # Cabeçalhos
+│   ├── 📄 osm_reader.h
+│   ├── 📄 dijkstra.h
+│   ├── 📄 graph.h
+│   └── 📄 edit.h            # API de edição (NOVO!)
+├── 📁 data/                  # Recursos da interface
+│   └── 📄 my_window.ui      # Layout GTK Glade
+├── 📁 test/                  # Programas de teste
+└── 📁 builddir/              # Arquivos compilados
+```
+
+## Características Técnicas
+
+### Algoritmos Implementados:
+- **Dijkstra com Min-Heap**: Implementação otimizada com fila de prioridade
+- **Haversine**: Cálculo de distância geodésica entre coordenadas
+- **Transformação de Coordenadas**: Conversão lat/lon ↔ coordenadas de tela
+- **Detecção de Cliques**: Sistema robusto de seleção de pontos próximos
+
+### Tecnologias Utilizadas:
+- **C11**: Linguagem de programação principal
+- **GTK+ 3.0**: Framework de interface gráfica cross-platform
+- **Cairo**: Renderização de gráficos vetoriais 2D
+- **libxml2**: Parser XML para arquivos OpenStreetMap
+- **Meson + Ninja**: Sistema moderno de compilação
+
+### Arquivos Importantes:
+- `src/edit.c` + `include/edit.h`: Sistema completo de edição de grafos
+- `src/dijkstra.c`: Algoritmo com reconstrução completa de caminhos
+- `src/main.c`: Interface gráfica com zoom centrado no mouse
+- `data/my_window.ui`: Layout da interface com botões de edição

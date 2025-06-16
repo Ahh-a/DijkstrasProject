@@ -29,7 +29,8 @@ c_sources = [
   'src/main.c',
   'src/osm_reader.c',
   'src/dijkstra.c',
-  'src/graph.c'
+  'src/graph.c',
+  'src/edit.c'
 ]
 executable(
     meson.project_name(),
