@@ -178,38 +178,6 @@ meson compile -C build
 .\build\DijikstrasProject.exe
 ```
 
-## Resolução de Problemas Comuns
-
-### ❌ Erro: "meson: command not found"
-**Linux/macOS**: Instale via gerenciador de pacotes ou pip:
-```bash
-pip3 install meson ninja
-```
-
-**Windows**: Use MSYS2 ou instale Python + pip
-
-### ❌ Erro: "Package 'gtk+-3.0' not found"
-**Linux**: Instale o pacote dev:
-```bash
-# Ubuntu/Debian
-sudo apt install libgtk-3-dev
-
-# Fedora
-sudo dnf install gtk3-devel
-```
-
-**Windows**: Certifique-se de usar o terminal MSYS2 MINGW64
-
-### ❌ Erro de compilação no Windows
-- Use sempre o terminal **MSYS2 MINGW64**, não o MSYS2 comum
-- Certifique-se que todas as dependências foram instaladas com `mingw-w64-x86_64-`
-
-### ❌ Problemas de codificação de caracteres
-Se você vir caracteres estranhos na interface:
-```bash
-export LANG=pt_BR.UTF-8
-export LC_ALL=pt_BR.UTF-8
-```
 
 ## Uso Interativo
 
@@ -225,7 +193,7 @@ export LC_ALL=pt_BR.UTF-8
 4. **Encontrar Caminho**: Clique no botão "Encontrar Caminho" ou digite os IDs dos pontos manualmente
 5. **Resetar Seleção**: Segure Ctrl e clique novamente para começar de novo
 
-### 🔧 **Modos de Edição (NOVO!)**
+### 🔧 **Modos de Edição**
 
 A aplicação agora inclui ferramentas completas de edição de grafos:
 
