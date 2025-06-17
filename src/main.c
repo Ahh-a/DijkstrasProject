@@ -164,7 +164,7 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
         double map_center_y = (min_lat + max_lat) / 2.0;
         
         // Draw edges first (behind points)
-        cairo_set_line_width(cr, 0.8 / app->zoom_factor); // Thinner lines when zoomed in
+        cairo_set_line_width(cr, 1.2 / app->zoom_factor); // Era 0.8, agora 1.2
         
         for (size_t i = 0; i < app->grafo->num_arestas; i++) {
             Aresta *a = &app->grafo->arestas[i];
@@ -198,7 +198,7 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
                     if (is_shortest_path_edge) {
                         // Draw shortest path edges in red with thicker line
                         cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.9); // Red
-                        cairo_set_line_width(cr, 2.0 / app->zoom_factor);
+                        cairo_set_line_width(cr, 3.0 / app->zoom_factor);
                     } else {
                         // Different colors for directional vs bidirectional edges
                         if (a->is_bidirectional) {
@@ -208,10 +208,11 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
                             // Directional edges in blue
                             cairo_set_source_rgba(cr, 0.2, 0.2, 0.8, 0.7); // Blue
                         }
+                        // Linhas ~186-194 - Aumentar espessura específica por tipo
                         if (a->is_bidirectional) {
-                            cairo_set_line_width(cr, 0.8 / app->zoom_factor); // Bidirectional streets
+                            cairo_set_line_width(cr, 1.2 / app->zoom_factor); // Era 0.8, agora 1.2 - Bidirectional streets
                         } else {
-                            cairo_set_line_width(cr, 1.2 / app->zoom_factor); // Oneway streets - slightly thicker
+                            cairo_set_line_width(cr, 1.6 / app->zoom_factor); // Era 1.2, agora 1.6 - Oneway streets - slightly thicker
                         }
                     }
                     
@@ -236,9 +237,9 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
                             double arrow_y = y1 + dy * length * 0.75;
                             
                             // Arrow size based on zoom - increased for better visibility
-                            double arrow_size = 12.0 / app->zoom_factor;
-                            if (arrow_size < 6.0) arrow_size = 6.0;
-                            if (arrow_size > 20.0) arrow_size = 20.0;
+                            double arrow_size = 18.0 / app->zoom_factor;
+                            if (arrow_size < 10.0) arrow_size = 10.0;
+                            if (arrow_size > 30.0) arrow_size = 30.0;
                             
                             // Draw arrowhead
                             cairo_save(cr);
@@ -266,9 +267,9 @@ gboolean on_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
             
             // Only draw if point is visible
             if (x >= -10 && x <= allocation.width + 10 && y >= -10 && y <= allocation.height + 10) {
-                double point_radius = 2.0 / app->zoom_factor;
-                if (point_radius < 1.0) point_radius = 1.0;
-                if (point_radius > 3.0) point_radius = 3.0;
+                double point_radius = 4.0 / app->zoom_factor;
+                if (point_radius < 2.0) point_radius = 2.0;
+                if (point_radius > 6.0) point_radius = 6.0;
                 
                 // Check if this point is selected
                 gboolean is_start = (app->has_start_point && p->id == app->selected_start_id);
