@@ -30,7 +30,11 @@ c_sources = [
   'src/osm_reader.c',
   'src/dijkstra.c',
   'src/graph.c',
-  'src/edit.c'
+  'src/edit.c',
+  'src/ui_helpers.c',
+  'src/interaction.c',
+  'src/drawing.c',
+  'src/callbacks.c'
 ]
 executable(
     meson.project_name(),

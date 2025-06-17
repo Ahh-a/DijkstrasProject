@@ -13,37 +13,17 @@ Uma implementação completa do algoritmo de caminho mais curto de Dijkstra com 
 - **Controles do Mouse**: Zoom com roda do mouse, arrastar para navegar, navegação intuitiva
 - **Busca de Caminhos**: Cálculo interativo de caminhos entre pontos selecionados com feedback visual
 - **Diferenciação Visual**: Pontos selecionados são destacados com cores diferentes (verde=início, vermelho=fim)
-- **🛣️ Grafos Direcionados**: Suporte completo a vias de mão única e mão dupla com parsing de tags OSM
+- ** Grafos Direcionados**: Suporte completo a vias de mão única e mão dupla com parsing de tags OSM
 - **Visualização de Direção**: Arestas direcionais mostradas em azul com setas, bidirecionais em cinza
 
-## 🛣️ **Suporte a Grafos Direcionados**
+##  **Suporte a Grafos Direcionados**
 
-O projeto agora suporta diferentes tipos de vias para representar o trânsito real:
 
 ### Tipos de Via Suportados:
 - **🔄 Vias Bidirecionais**: Ruas normais de mão dupla (padrão)
 - **➡️ Vias de Mão Única**: Ruas com direção única obrigatória  
 - **⬅️ Vias Reversas**: Vias de mão única na direção oposta
 
-### Tags OSM Reconhecidas:
-```xml
-<!-- Via bidirecional (padrão) -->
-<way id="123">
-  <tag k="highway" v="residential"/>
-</way>
-
-<!-- Via de mão única -->
-<way id="124">
-  <tag k="highway" v="residential"/>
-  <tag k="oneway" v="yes"/>
-</way>
-
-<!-- Via de mão única reversa -->
-<way id="125">
-  <tag k="highway" v="residential"/>
-  <tag k="oneway" v="-1"/>
-</way>
-```
 
 ### Visualização:
 - **Arestas Bidirecionais**: Linhas cinzas sem setas
@@ -55,24 +35,10 @@ O projeto agora suporta diferentes tipos de vias para representar o trânsito re
 - **Busca Otimizada**: Só explora arestas na direção permitida
 - **Caminhos Válidos**: Garante que todos os caminhos encontrados respeitam o trânsito
 
-### Detecção Automática OSM:
-O parser OSM detecta automaticamente tags de via única:
-- `<tag k="oneway" v="yes"/>` ou `v="true"` ou `v="1"` → Via de mão única normal
-- `<tag k="oneway" v="-1"/>` ou `v="reverse"/>` → Via de mão única reversa
-- Ausência da tag oneway → Via bidirecional (padrão)
-
-### Algoritmo de Dijkstra Atualizado:
-- Respeita as direções das vias durante o cálculo de caminhos
-- Vias de mão única só podem ser percorridas na direção correta
-- Vias bidirecionais podem ser percorridas em ambas as direções
-
 ### Visualização Diferenciada:
 - **Cores**: Cinza para bidirecionais, azul para mão única
 - **Setas**: Setas azuis indicam a direção permitida em vias de mão única
 - **Estatísticas**: Interface mostra contagem de vias de cada tipo
-
-### Exemplo de Teste:
-Use o arquivo `test_oneway.osm` incluído para testar a funcionalidade com diferentes tipos de via.
 
 ## Dependências
 
@@ -290,59 +256,51 @@ A aplicação agora inclui ferramentas completas de edição de grafos:
 - Clique em "Encontrar Caminho" para calcular a rota mais curta
 - Veja os resultados no painel de resultados
 
-## Testes e Depuração
-
-O projeto inclui programas de teste abrangentes no diretório `test/`:
-
-### Programas de Teste
-- `test/test_events.c` - Teste básico de detecção de eventos
-- `test/test_simple_selection.c` - Teste abrangente de seleção de pontos
-- `test/verify_fix.sh` - Verificação automatizada do projeto
-- `test/test_debug.c` - Programa de depuração geral
-- `test/test_coordinates.c` - Teste de coordenadas
-- `test/test_draw.c` - Teste de funções de desenho
-- `test/test_locale.c` - Teste de configurações de localização
-- `test/test_parsing.c` - Teste de análise de arquivos
-- `test/test_point_selection.c` - Teste específico de seleção de pontos
-- `test/test_app_debug.c` - Depuração da aplicação principal
-
-### Executando os Testes
-```bash
-# Executar script de verificação
-./test/verify_fix.sh
-
-# Compilar e executar testes individuais
-cd test/
-gcc `pkg-config --cflags gtk+-3.0` -o test_events test_events.c `pkg-config --libs gtk+-3.0`
-./test_events
-
-# Compilar teste de seleção de pontos
-gcc -I../include `pkg-config --cflags gtk+-3.0` -o test_simple_selection test_simple_selection.c ../src/osm_reader.c ../src/graph.c ../src/dijkstra.c `pkg-config --libs gtk+-3.0` -lxml2 -lm
-./test_simple_selection
-```
 
 ## Estrutura do Projeto
+
+### 🗂️ **Arquitetura Modular**
+
+O projeto foi refatorado para uma **arquitetura modular** que separa responsabilidades e melhora a manutenibilidade:
 
 ```
 📁 DijkstrasProject/
 ├── 📄 README.md              # Documentação principal
-├── 📄 meson.build            # Configuração de compilação
+├── 📄 meson.build            # Configuração de compilação (Meson)
 ├── 📄 casaPrimo.osm          # Arquivo OSM de exemplo
-├── 📁 src/                   # Código fonte principal
-│   ├── 📄 main.c            # Interface gráfica e controle principal
-│   ├── 📄 osm_reader.c      # Leitor de arquivos OSM
-│   ├── 📄 dijkstra.c        # Implementação do algoritmo
-│   ├── 📄 graph.c           # Estruturas de dados do grafo
-│   └── 📄 edit.c            # Funcionalidades de edição (NOVO!)
-├── 📁 include/               # Cabeçalhos
-│   ├── 📄 osm_reader.h
-│   ├── 📄 dijkstra.h
-│   ├── 📄 graph.h
-│   └── 📄 edit.h            # API de edição (NOVO!)
-├── 📁 data/                  # Recursos da interface
-│   └── 📄 my_window.ui      # Layout GTK Glade
-├── 📁 test/                  # Programas de teste
-└── 📁 builddir/              # Arquivos compilados
+├── 📄 casaPrimo_graph.png    # Exemplo de exportação PNG
+├── 📁 src/                   # 🔧 Código fonte modular
+│   ├── 📄 main.c            # ⚡ Inicialização e configuração (164 linhas)
+│   ├── 📄 callbacks.c       # 🎯 Callbacks e eventos GTK 
+│   ├── 📄 drawing.c         # 🎨 Renderização Cairo e visualização
+│   ├── 📄 interaction.c     # 🖱️ Interação com mouse e teclado
+│   ├── 📄 ui_helpers.c      # 🛠️ Funções auxiliares da interface
+│   ├── 📄 osm_reader.c      # 📖 Parser de arquivos OSM
+│   ├── 📄 dijkstra.c        # 🧮 Algoritmo de caminho mais curto
+│   ├── 📄 graph.c           # 📊 Estruturas de dados do grafo
+│   └── 📄 edit.c            # ✏️ Funcionalidades de edição
+├── 📁 include/               # 📑 Headers modulares
+│   ├── 📄 app_data.h        # 🏗️ Estrutura principal AppData
+│   ├── 📄 callbacks.h       # 🎯 Declarações de callbacks
+│   ├── 📄 drawing.h         # 🎨 API de desenho e renderização
+│   ├── 📄 interaction.h     # 🖱️ API de interação
+│   ├── 📄 ui_helpers.h      # 🛠️ Utilitários da interface
+│   ├── 📄 osm_reader.h      # 📖 API do parser OSM
+│   ├── 📄 dijkstra.h        # 🧮 API do algoritmo
+│   ├── 📄 graph.h           # 📊 Estruturas do grafo
+│   └── 📄 edit.h            # ✏️ API de edição
+├── 📁 data/                  # 🎨 Recursos da interface
+│   ├── 📄 my_window.ui      # 🖼️ Layout GTK Glade
+│   └── 📄 menu.ui           # 📋 Definição de menus
+├── 📁 test/                  # 🧪 Programas de teste
+│   ├── 📄 run_tests.sh      # 🔄 Script de testes automatizados
+│   ├── 📄 test_*.c          # 🔬 Testes unitários específicos
+│   └── 📄 verify_fix.sh     # ✅ Verificação de correções
+├── 📁 test_data/            # 📋 Dados para testes
+│   ├── 📄 simple_test.osm   # 🗺️ Grafo simples para testes
+│   └── 📄 test_oneway.osm   # ↗️ Teste de vias direcionais
+├── 📁 build/ (ou builddir/) # 🏗️ Arquivos compilados (Meson)
+└── 📄 dijkstrasProject.gresource.xml # 📦 Recursos integrados
 ```
 
 ## Características Técnicas
@@ -360,8 +318,3 @@ gcc -I../include `pkg-config --cflags gtk+-3.0` -o test_simple_selection test_si
 - **libxml2**: Parser XML para arquivos OpenStreetMap
 - **Meson + Ninja**: Sistema moderno de compilação
 
-### Arquivos Importantes:
-- `src/edit.c` + `include/edit.h`: Sistema completo de edição de grafos
-- `src/dijkstra.c`: Algoritmo com reconstrução completa de caminhos
-- `src/main.c`: Interface gráfica com zoom centrado no mouse
-- `data/my_window.ui`: Layout da interface com botões de edição

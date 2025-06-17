@@ -34,19 +34,22 @@ void liberar_grafo(Grafo* grafo) {
     }
 }
 
-// Função principal para ler o arquivo OSM
+
+// Struct temporária para armazenar nós durante a leitura do OSM
 typedef struct {
     long long id;
     double lat;
     double lon;
 } NodeTemp;
 
+// Struct temporária para armazenar arestas durante a leitura do OSM
 typedef struct {
     long long origem;
     long long destino;
-    int is_bidirectional;  // 1 para bidirectional, 0 para direcional
+    int is_bidirectional; // 1 se bidirecional, 0 se mão única
 } EdgeTemp;
 
+// Função principal para ler o arquivo OSM
 Grafo* ler_osm(const char* caminho_arquivo_osm) {
     // Set C locale to ensure decimal point parsing
     setlocale(LC_NUMERIC, "C");
