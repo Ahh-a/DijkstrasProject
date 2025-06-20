@@ -76,21 +76,6 @@ ninja --version
 pkg-config --modversion gtk+-3.0
 ```
 
-###  Linux (Arch Linux)
-
-```bash
-# Instalar dependências
-sudo pacman -S \
-    base-devel \
-    meson \
-    ninja \
-    pkg-config \
-    gtk3 \
-    cairo \
-    libxml2 \
-    glib2
-```
-
 ###  Windows
 
 #### Opção 1: MSYS2 (Recomendado)
@@ -268,9 +253,8 @@ O projeto foi refatorado para uma **arquitetura modular** que separa responsabil
 ├── 📄 README.md              # Documentação principal
 ├── 📄 meson.build            # Configuração de compilação (Meson)
 ├── 📄 casaPrimo.osm          # Arquivo OSM de exemplo
-├── 📄 casaPrimo_graph.png    # Exemplo de exportação PNG
 ├── 📁 src/                   # 🔧 Código fonte modular
-│   ├── 📄 main.c            # ⚡ Inicialização e configuração (164 linhas)
+│   ├── 📄 main.c            # ⚡ Inicialização e configuração 
 │   ├── 📄 callbacks.c       # 🎯 Callbacks e eventos GTK 
 │   ├── 📄 drawing.c         # 🎨 Renderização Cairo e visualização
 │   ├── 📄 interaction.c     # 🖱️ Interação com mouse e teclado
