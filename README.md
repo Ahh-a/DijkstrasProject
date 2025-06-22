@@ -227,7 +227,7 @@ A aplicação agora inclui ferramentas completas de edição de grafos:
    - **Deletar**: Clique em um nó para removê-lo (só permite nós com ≤2 conexões)
    - **Conectar**: Clique no primeiro nó, depois no segundo para criar uma aresta
    - **Normal**: Retorna ao modo padrão de navegação e seleção Dijkstra
-
+-
 #### Características Avançadas:
 - **Cálculo automático de distância**: Novas conexões usam fórmula Haversine
 - **Validação de operações**: Previne deletar nós críticos com muitas conexões
